@@ -1,0 +1,67 @@
+variables:
+  NAMESPACE: 7to12
+  DOCKER_REGISTRY: docker.yc345.tv
+
+stages:
+  - build_dev
+  - build_stage
+  - build_prod
+
+before_script:
+  - git config --global http.https://github.com.proxy http://10.8.8.7:8118 && git config --global https.https://github.com.proxy http://10.8.8.7:8118
+  - export NVM_NODEJS_ORG_MIRROR=https://npm.taobao.org/mirrors/node/
+
+build_dev:
+  stage: build_dev
+  only:
+    - develop
+  tags:
+    - ops
+  script:
+    - nvm install v16.18.1
+    - nvm use v16.18.1
+    - npm install
+    - npm run build:test
+    - docker login --username=$DOCKER_USERNAME $DOCKER_REGISTRY -p $DOCKER_PASSWORD
+    - docker build -t $DOCKER_REGISTRY/$NAMESPACE/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA .
+    - docker push $DOCKER_REGISTRY/$NAMESPACE/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA
+    - kubectl config set-cluster test-cluster --server=$KUBE_HOST_TEST --insecure-skip-tls-verify=true
+    - kubectl config set-credentials gitlab-ci --token=$KUBE_TOKEN_TEST
+    - kubectl config set-context testenv --cluster=test-cluster --user=gitlab-ci && kubectl config use-context testenv
+    - kubectl -n $NAMESPACE set image deployment $CI_PROJECT_NAME $CI_PROJECT_NAME=$DOCKER_REGISTRY/$NAMESPACE/$CI_PROJECT_NAME:$CI_COMMIT_SHORT_SHA --record
+    - kubectl -n $NAMESPACE rollout status deployment $CI_PROJECT_NAME
+
+build_stage:
+  stage: build_stage
+  only:
+    - /^.*_stage[0-9]*$/
+  tags:
+    - ops
+  script:
+    - nvm install v16.18.1
+    - nvm use v16.18.1
+    - npm install
+    - npm run build:stage
+    - docker login --username=$DOCKER_USERNAME $DOCKER_REGISTRY -p $DOCKER_PASSWORD
+    - docker build -t $DOCKER_REGISTRY/$NAMESPACE/$CI_PROJECT_NAME:$CI_BUILD_REF_NAME .
+    - docker push $DOCKER_REGISTRY/$NAMESPACE/$CI_PROJECT_NAME:$CI_BUILD_REF_NAME
+    - kubectl config set-cluster stage-cluster --server=$KUBE_HOST_STAGE --insecure-skip-tls-verify=true
+    - kubectl config set-credentials gitlab-ci --token=$KUBE_TOKEN_STAGE
+    - kubectl config set-context stagenv --cluster=stage-cluster --user=gitlab-ci && kubectl config use-context stagenv
+    - kubectl -n $NAMESPACE set image deployment $CI_PROJECT_NAME $CI_PROJECT_NAME=$DOCKER_REGISTRY/$NAMESPACE/$CI_PROJECT_NAME:$CI_BUILD_REF_NAME --record
+    - kubectl -n $NAMESPACE rollout status deployment $CI_PROJECT_NAME
+
+build_prod:
+  stage: build_prod
+  only:
+    - /^v\d+(?:\.\d+){2}$/ # v0.0.1
+  tags:
+    - ops
+  script:
+    - nvm install v16.18.1
+    - nvm use v16.18.1
+    - npm install
+    - npm run build
+    - docker login --username=$DOCKER_USERNAME $DOCKER_REGISTRY -p $DOCKER_PASSWORD
+    - docker build -t $DOCKER_REGISTRY/$NAMESPACE/$CI_PROJECT_NAME:$CI_BUILD_REF_NAME .
+    - docker push $DOCKER_REGISTRY/$NAMESPACE/$CI_PROJECT_NAME:$CI_BUILD_REF_NAME

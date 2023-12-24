@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ESNext", //最新的ecmascript语法
+    "module": "ESNext", //模块使用es module
+    "moduleResolution": "Node", //使用node解析模块
+    "strict": true, // 严格模式
+    "jsx": "preserve", //ts不编译jsx语法
+    "resolveJsonModule": true,// 直接import json文件
+    "sourceMap": true, //源码 可以直接看到ts源代码
+    "useDefineForClassFields": true,
+    "isolatedModules": true, // export导出类型的时候警告
+    "esModuleInterop": true,
+    "lib": ["ESNext", "DOM"], // 支持哪些内置的模块
+    "skipLibCheck": true,
+    "types": ["vite/client"], // vite内部支持的一些变量
+    "baseUrl": "./",
+    "noImplicitAny":false, //禁止报any错误
+    "paths": {
+      "@/*": ["src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"], //要编译的文件
+}
